@@ -61,6 +61,16 @@ SAMPLES = [
             "}\n"
         ),
     },
+    {
+        "label": "Code (C#)",
+        "text": (
+            "public static int Fibonacci(int n)\n"
+            "{\n"
+            "    if (n < 2) return n;\n"
+            "    return Fibonacci(n - 1) + Fibonacci(n - 2);\n"
+            "}\n"
+        ),
+    },
 ]
 
 

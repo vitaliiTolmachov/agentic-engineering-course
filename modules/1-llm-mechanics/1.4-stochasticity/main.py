@@ -1,10 +1,9 @@
 """Stochasticity demo for Module 1 (Lecture 1.4).
 
-Запускає той самий промпт з трьома значеннями temperature і показує що:
-  1. T=0.0 дає стабільні виходи між запусками
-  2. T=1.0 дає різні виходи
-  3. Constrained prompt дає стабільний вихід навіть при T=1.0 (промпт як ручка temperature)
+Запускає той самий промпт з трьома значеннями temperature (0.0, 0.7, 1.0)
+і показує різницю у варіативності відповідей.
 """
+
 import os
 import sys
 from difflib import SequenceMatcher
@@ -16,14 +15,11 @@ load_dotenv()
 
 MODEL = "claude-sonnet-4-6"
 
-OPEN_PROMPT = "Перелічи переваги мікросервісів."
-CONSTRAINED_PROMPT = (
-    "Перелічи рівно 3 переваги мікросервісів у форматі:\n"
-    "1. <Назва> - <одне речення опису>\n"
-    "2. <Назва> - <одне речення опису>\n"
-    "3. <Назва> - <одне речення опису>\n"
-    "Без преамбули, без епілогу, тільки три рядки."
+PROMPT = (
+    "Поясни різницю між Task і ValueTask у C#, та наведи приклади, "
+    "коли використання ValueTask дійсно виправдане для оптимізації пам'яті."
 )
+
 RUNS_PER_TEMP = 3
 
 
@@ -39,7 +35,7 @@ def require_api_key() -> None:
 def call(client: Anthropic, prompt: str, temperature: float) -> str:
     response = client.messages.create(
         model=MODEL,
-        max_tokens=300,
+        max_tokens=600,
         temperature=temperature,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -53,13 +49,19 @@ def similarity(a: str, b: str) -> float:
 def run_batch(
     client: Anthropic, label: str, prompt: str, temperature: float
 ) -> list[str]:
+    print("=" * 80)
     print(f"--- {label} (T={temperature}, {RUNS_PER_TEMP} runs) ---")
+    print("=" * 80)
+
     outputs = []
     for i in range(1, RUNS_PER_TEMP + 1):
         out = call(client, prompt, temperature)
         outputs.append(out)
-        preview = out[:200].replace("\n", " | ")
-        print(f"  Run {i}: {preview}{'...' if len(out) > 200 else ''}")
+
+        print(f"\n>>> RUN {i} (Temperature = {temperature}) <<<\n")
+        print(out)
+        print("-" * 40)
+
     pairs = [
         (i + 1, j + 1, similarity(outputs[i], outputs[j]))
         for i in range(len(outputs))
@@ -67,8 +69,8 @@ def run_batch(
     ]
     avg = sum(s for _, _, s in pairs) / max(len(pairs), 1)
     pair_str = ", ".join(f"{i}~{j}={s:.2f}" for i, j, s in pairs)
-    print(f"  Pairwise similarity (1.00 = identical): {pair_str}, avg={avg:.2f}")
-    print()
+
+    print(f"\n[Pairwise similarity (1.00 = identical): {pair_str}, avg={avg:.2f}]\n")
     return outputs
 
 
@@ -76,32 +78,14 @@ def main() -> None:
     require_api_key()
     client = Anthropic()
 
-    print()
-    print("STOCHASTICITY DEMO")
+    print("\nSTOCHASTICITY DEMO FOR C# PROMPT")
     print(f"Model: {MODEL}")
-    print()
-    print(f'Open-ended prompt: "{OPEN_PROMPT}"')
-    print()
+    print(f'Prompt: "{PROMPT}"\n')
 
-    run_batch(client, "Open-ended @ T=0.0", OPEN_PROMPT, 0.0)
-    run_batch(client, "Open-ended @ T=0.5", OPEN_PROMPT, 0.5)
-    run_batch(client, "Open-ended @ T=1.0", OPEN_PROMPT, 1.0)
-
-    print(f'Constrained prompt: "{CONSTRAINED_PROMPT[:80]}..."')
-    print()
-    run_batch(client, "Constrained @ T=1.0", CONSTRAINED_PROMPT, 1.0)
-
-    print("Висновки:")
-    print(
-        "  1. T=0 дає високу similarity (~0.9+) бо модель завжди бере найвірогідніший токен."
-    )
-    print(
-        "  2. T=1.0 з відкритим промптом дає низьку similarity (~0.3-0.5)."
-    )
-    print(
-        "  3. T=1.0 з constrained промптом дає високу similarity бо формат фіксований."
-    )
-    print("  Промпт це теж ручка temperature, особливо для Claude.ai / Claude Code.")
+    # Виконуємо 3 прогони для кожної з трьох температур
+    run_batch(client, "Temperature 0.0", PROMPT, 0.0)
+    run_batch(client, "Temperature 0.7", PROMPT, 0.7)
+    run_batch(client, "Temperature 1.0", PROMPT, 1.0)
 
 
 if __name__ == "__main__":
